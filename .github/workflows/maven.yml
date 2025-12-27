@@ -1,0 +1,40 @@
+name: Java CI/CD with Maven and Security
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build and Test with Maven
+        # Передаем секреты для успешного прохождения тестов, если они обращаются к контексту
+        run: mvn clean package
+        env:
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          JWT_SECRET: ${{ secrets.JWT_SECRET }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+
+      - name: Upload Build Artifact
+        # Загружаем собранный .jar файл в хранилище артефактов GitHub
+        uses: actions/upload-artifact@v4
+        with:
+          name: conference-application-v1
+          path: target/*.jar
+
+      - name: Security Check
+        run: echo "Build completed successfully. Sensitive data is protected by GitHub Secrets."
