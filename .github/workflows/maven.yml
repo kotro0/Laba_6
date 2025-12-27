@@ -1,4 +1,4 @@
-name: Java CI with Maven
+name: Java CI with Maven and Tests
 
 on:
   push:
@@ -9,6 +9,22 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
+    # Запускаем временную базу данных для тестов
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_DB: conference
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
       - uses: actions/checkout@v4
@@ -27,16 +43,17 @@ jobs:
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src/main/resources/server.jks
         shell: bash
 
-      # Собираем проект, пропуская тесты (так как базы данных нет в облаке)
-      - name: Build with Maven
-        run: mvn clean package -DskipTests
+      # Теперь запускаем полноценную сборку С ТЕСТАМИ
+      - name: Build and Test with Maven
+        run: mvn clean package
         env:
-          DB_USERNAME: ${{ secrets.DB_USERNAME }}
+          # Указываем приложению, как подключиться к временной базе на GitHub
+          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/conference
+          DB_USERNAME: postgres
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
 
-      # Загружаем готовый JAR как артефакт
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
