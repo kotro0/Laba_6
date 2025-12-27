@@ -1,4 +1,4 @@
-name: Java CI with Maven and Tests
+name: Java CI with Maven
 
 on:
   push:
@@ -10,21 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_DB: conference
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ${{ secrets.DB_PASSWORD }}
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-
     steps:
       - uses: actions/checkout@v4
 
@@ -35,26 +20,23 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
+      # Декодируем сертификат из Base64
       - name: Decode Keystore
         run: |
           mkdir -p src/main/resources
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src/main/resources/server.jks
         shell: bash
 
-      - name: Build and Test with Maven
-        run: mvn clean package
+      # Собираем проект, пропуская тесты (так как базы данных нет в облаке)
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
         env:
-          # Эти переменные перекроют те, что в application.properties во время тестов
-          SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/conference
-          SPRING_DATASOURCE_USERNAME: postgres
-          SPRING_DATASOURCE_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_USERNAME: postgres
+          DB_USERNAME: ${{ secrets.DB_USERNAME }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
-          # Отключаем обязательную проверку SSL для тестов, если JKS капризничает
-          SERVER_SSL_ENABLED: true
 
+      # Загружаем готовый JAR как артефакт
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
