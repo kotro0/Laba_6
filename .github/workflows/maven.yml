@@ -10,7 +10,6 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    # Запускаем временную базу данных для тестов
     services:
       postgres:
         image: postgres:15
@@ -36,23 +35,25 @@ jobs:
           distribution: 'temurin'
           cache: maven
 
-      # Декодируем сертификат из Base64
       - name: Decode Keystore
         run: |
           mkdir -p src/main/resources
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > src/main/resources/server.jks
         shell: bash
 
-      # Теперь запускаем полноценную сборку С ТЕСТАМИ
       - name: Build and Test with Maven
         run: mvn clean package
         env:
-          # Указываем приложению, как подключиться к временной базе на GitHub
+          # Эти переменные перекроют те, что в application.properties во время тестов
           SPRING_DATASOURCE_URL: jdbc:postgresql://localhost:5432/conference
+          SPRING_DATASOURCE_USERNAME: postgres
+          SPRING_DATASOURCE_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_USERNAME: postgres
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           JWT_SECRET: ${{ secrets.JWT_SECRET }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          # Отключаем обязательную проверку SSL для тестов, если JKS капризничает
+          SERVER_SSL_ENABLED: true
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
